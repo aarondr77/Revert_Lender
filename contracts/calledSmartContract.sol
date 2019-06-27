@@ -5,7 +5,7 @@ import "./ERC20.sol";
 contract calledSmartContract {
 
 
-  function repayEtherLoan(uint amount, address to) public {
+  function repayEtherLoan(uint amount, address payable to) public {
     require(amount <= address(this).balance, "not enough ether");
     to.transfer(amount);
   }

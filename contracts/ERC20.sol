@@ -35,6 +35,11 @@ contract ERC20 is IERC20 {
 
     uint256 private _totalSupply;
 
+    constructor(uint amount) public {
+  			_totalSupply = amount;
+        _balances[msg.sender] = amount;
+  	}
+
     /**
      * @dev See `IERC20.totalSupply`.
      */
