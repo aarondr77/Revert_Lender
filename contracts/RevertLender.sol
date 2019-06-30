@@ -7,8 +7,8 @@ import "./SafeMath.sol";
 contract RevertLender {
 	using SafeMath for uint;
 	// lender -> currency -> upper limit
-	mapping (address => uint) upperLimits;
-  mapping (address => uint) interestRates;
+	mapping (address => uint) public upperLimits;
+  mapping (address => uint) public interestRates;
 
 	uint public constant INTEREST_RATE_CONVERTER = 10 ** 7;
 
@@ -19,17 +19,34 @@ contract RevertLender {
 		_;
 	}
 
+	event AddressZero(address b);
+	event AddressArgument(address c);
+
 	function () external {}
 
 	constructor() public {
 			lender = msg.sender;
 	}
 
+	function isZero (address a) public {
+		emit AddressZero(address(0));
+		emit AddressArgument(a);
+		require(a == address(0), "address is not zero");
+	}
+
+	function callPractice (address a, bytes memory callData) public {
+		a.call(callData);
+	}
 
 	// Allows the lender to update his lending preferences
+	// TODO allow people to decrease offer!
 	function updateLendingOffer (address currency, uint amount, uint interestRate) onlyLender(msg.sender) public payable {
-		require(IERC20(currency).transferFrom(msg.sender, address(this), amount), "not approved to transfer tokens");
-		upperLimits[currency] = IERC20(currency).balanceOf(msg.sender);
+		if (currency == address(0)) {
+			require(msg.value >= amount, "must fund account to update offer");
+		} else {
+			require(IERC20(currency).transferFrom(msg.sender, address(this), amount), "not approved to transfer tokens");
+		}
+		upperLimits[currency] += amount;
 		interestRates[currency] = interestRate;
   }
 

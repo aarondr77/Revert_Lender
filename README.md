@@ -7,3 +7,6 @@
 
 install web3-utils
 npm install web3-utils
+
+
+npm install -g ganache-cli
