@@ -13,6 +13,35 @@ contract ('Revert Lender', (accounts) => {
   let lender = accounts[0];
   let borrower = accounts[1];
 
+  async function successfulLoan() {
+    let currency = "0x0000000000000000000000000000000000000000";
+    let fundingAmount = 50;
+    let interest = 10;
+    let totalInterest = fundingAmount * interest / 100;
+    let totalAmountDue = fundingAmount + totalInterest;
+    let loanPayoff = totalAmountDue + 10;
+
+    // give calledSmartContract some intitial funding to simulate successful loan
+    await calledSmartContract.depositEther({value: 100, from: accounts[9]});
+
+    // set up lending offer
+    await revertLender.updateLendingOffer(currency, fundingAmount, interest, {from: lender, value: fundingAmount});
+
+    let encodingSuccessfulLoan = await web3.eth.abi.encodeFunctionCall({
+        name: 'repayEtherLoan',
+        type: 'function',
+        inputs: [{
+            type: 'uint256',
+            name: 'amount'
+        },{
+            type: 'address',
+            name: 'to'
+        }]
+    }, [loanPayoff, revertLender.address]);
+
+    await revertLender.borrow(calledSmartContract.address, encodingSuccessfulLoan, borrower, fundingAmount, currency);
+  }
+
   beforeEach(async() => {
     revertLender = await RevertLender.new({from: accounts[0]});
     calledSmartContract = await CalledSmartContract.new({from: accounts[0]});
@@ -39,43 +68,184 @@ contract ('Revert Lender', (accounts) => {
   })
 
 
-  it ('should repay the lender when successful ether loan is made', async () => {
+  it ('should successfuly use callPractice', async () => {
     let currency = "0x0000000000000000000000000000000000000000";
     let fundingAmount = 5;
     let interest = 3;
 
-    let functionSignature = calledSmartContract.address + "(uint256,address)"
-    let hashedFunctionSignature = web3.utils.sha3(functionSignature);
-    console.log(functionSignature);
-
-    let callData = await bytes4(hashedFunctionSignature), 5);
-
-    console.log(callData);
-
-    // give calledSmartContract funds
     await calledSmartContract.depositEther({value: 5, from: accounts[2]});
-
-    // get ether balance of lender
-    let beginningBalance = await web3.eth.getBalance(calledSmartContract.address);
-    console.log(beginningBalance);
-
-    //await revertLender.callPractice(calledSmartContract.address, )
-    //calledSmartContract.call(bytes4(hashedFunctionSignature), 2)
+    let beginningBalanceCalledSmartContract = await web3.eth.getBalance(calledSmartContract.address);
+    let beginningBalanceRevertLender = await web3.eth.getBalance(revertLender.address);
 
 
+    let encoding = await web3.eth.abi.encodeFunctionCall({
+        name: 'repayEtherLoan',
+        type: 'function',
+        inputs: [{
+            type: 'uint256',
+            name: 'amount'
+        },{
+            type: 'address',
+            name: 'to'
+        }]
+    }, [fundingAmount, revertLender.address]);
 
-    // sc.call(keccack256(“f(uint256)”), parameter_data));
+    await revertLender.callPractice(calledSmartContract.address, encoding);
+
+    let endingBalanceCalledSmartContract = await web3.eth.getBalance(calledSmartContract.address);
+    let endingBalanceRevertLender = await web3.eth.getBalance(revertLender.address);
+
+
+    console.log(beginningBalanceCalledSmartContract);
+    console.log(endingBalanceCalledSmartContract);
+    console.log("Encoding1", encoding);
+
+    await assert.equal(Number(endingBalanceCalledSmartContract), Number(beginningBalanceCalledSmartContract) - Number(fundingAmount));
+    await assert.equal(Number(endingBalanceRevertLender), (Number(beginningBalanceRevertLender) + Number(fundingAmount)));
+
   })
 
-  it ('should repay the lender when successful ether loan is made', async () => {
-
-
-    let principal = 5;
+  it ('should repay the lender when successful ether loan is made with no excess profits', async () => {
     let currency = "0x0000000000000000000000000000000000000000";
+    let fundingAmount = 50;
+    let interest = 10;
+    let totalInterest = fundingAmount * interest / 100;
+    let totalAmountDue = fundingAmount + totalInterest;
+    let loanPayoff = totalAmountDue;
 
+    console.log("totalAmountDue", totalAmountDue);
+
+    // give calledSmartContract some intitial funding to simulate successful loan
+    await calledSmartContract.depositEther({value: 100, from: accounts[9]});
+
+    // set up lending offer
+    await revertLender.updateLendingOffer(currency, fundingAmount, interest, {from: lender, value: fundingAmount});
+
+    // get initial balances
+    let beginningBalanceCalledSmartContract = await web3.eth.getBalance(calledSmartContract.address);
+    let beginningBalanceRevertLender = await web3.eth.getBalance(revertLender.address);
+
+
+    await console.log(beginningBalanceCalledSmartContract);
+    await console.log(beginningBalanceRevertLender);
+
+
+    let encoding2 = await web3.eth.abi.encodeFunctionCall({
+        name: 'repayEtherLoan',
+        type: 'function',
+        inputs: [{
+            type: 'uint256',
+            name: 'amount'
+        },{
+            type: 'address',
+            name: 'to'
+        }]
+    }, [loanPayoff, revertLender.address]);
+
+    await revertLender.borrow(calledSmartContract.address, encoding2, borrower, fundingAmount, currency);
+
+    let endingBalanceCalledSmartContract = await web3.eth.getBalance(calledSmartContract.address);
+    let endingBalanceRevertLender = await web3.eth.getBalance(revertLender.address);
+    await console.log(endingBalanceCalledSmartContract);
+    await console.log(endingBalanceRevertLender);
+
+    await assert.equal(Number(endingBalanceCalledSmartContract), Number(beginningBalanceCalledSmartContract) - (Number(loanPayoff) - Number(fundingAmount)));
+    await assert.equal(Number(endingBalanceRevertLender), Number(beginningBalanceRevertLender) + Number(totalInterest));
   })
+
+  it ('should repay the lender when successful ether loan is made with excess profits', async () => {
+    let currency = "0x0000000000000000000000000000000000000000";
+    let fundingAmount = 50;
+    let interest = 10;
+    let totalInterest = fundingAmount * interest / 100;
+    let totalAmountDue = fundingAmount + totalInterest;
+    let loanPayoff = totalAmountDue + 10;
+
+    console.log("totalAmountDue", totalAmountDue);
+
+    // give calledSmartContract some intitial funding to simulate successful loan
+    await calledSmartContract.depositEther({value: 100, from: accounts[9]});
+
+    // set up lending offer
+    await revertLender.updateLendingOffer(currency, fundingAmount, interest, {from: lender, value: fundingAmount});
+
+    // get initial balances
+    let beginningBalanceCalledSmartContract = await web3.eth.getBalance(calledSmartContract.address);
+    let beginningBalanceRevertLender = await web3.eth.getBalance(revertLender.address);
+    let beginningBalanceBorrower = await web3.eth.getBalance(borrower);
+
+
+    await console.log(beginningBalanceCalledSmartContract);
+    await console.log(beginningBalanceRevertLender);
+
+
+    let encoding2 = await web3.eth.abi.encodeFunctionCall({
+        name: 'repayEtherLoan',
+        type: 'function',
+        inputs: [{
+            type: 'uint256',
+            name: 'amount'
+        },{
+            type: 'address',
+            name: 'to'
+        }]
+    }, [loanPayoff, revertLender.address]);
+
+    await revertLender.borrow(calledSmartContract.address, encoding2, borrower, fundingAmount, currency);
+
+    let endingBalanceCalledSmartContract = await web3.eth.getBalance(calledSmartContract.address);
+    let endingBalanceRevertLender = await web3.eth.getBalance(revertLender.address);
+    let endingBalanceBorrower = await web3.eth.getBalance(borrower);
+
+    await console.log("borrower Balance ", await web3.eth.getBalance(borrower));
+    await console.log("Lender Balance ", await web3.eth.getBalance(lender))
+
+    await console.log(endingBalanceCalledSmartContract);
+    await console.log(endingBalanceRevertLender);
+
+    await assert.equal(Number(endingBalanceCalledSmartContract), Number(beginningBalanceCalledSmartContract) - (Number(loanPayoff) - Number(fundingAmount)));
+    await assert.equal(Number(endingBalanceRevertLender), Number(beginningBalanceRevertLender) + Number(totalInterest));
+    await assert.equal(Number(endingBalanceBorrower), Number(beginningBalanceBorrower) + Number(loanPayoff) - Number(totalAmountDue));
+  })
+
 
   it ('should revert when ether loan defaults', async () => {
+    let currency = "0x0000000000000000000000000000000000000000";
+    let fundingAmount = 50;
+    let interest = 10;
+    let totalInterest = fundingAmount * interest / 100;
+    let totalAmountDue = fundingAmount + totalInterest;
+    let loanPayoff = totalAmountDue - 5;
+
+    console.log("totalAmountDue", totalAmountDue);
+
+    // give calledSmartContract some intitial funding to simulate successful loan
+    await calledSmartContract.depositEther({value: 100, from: accounts[9]});
+
+    // set up lending offer
+    await revertLender.updateLendingOffer(currency, fundingAmount, interest, {from: lender, value: fundingAmount});
+
+    // get initial balances
+    let beginningBalanceCalledSmartContract = await web3.eth.getBalance(calledSmartContract.address);
+    let beginningBalanceRevertLender = await web3.eth.getBalance(revertLender.address);
+    let beginningBalanceBorrower = await web3.eth.getBalance(borrower);
+
+    await console.log(beginningBalanceCalledSmartContract);
+    await console.log(beginningBalanceRevertLender);
+
+    let encoding2 = await web3.eth.abi.encodeFunctionCall({
+        name: 'repayEtherLoan',
+        type: 'function',
+        inputs: [{
+            type: 'uint256',
+            name: 'amount'
+        },{
+            type: 'address',
+            name: 'to'
+        }]
+    }, [loanPayoff, revertLender.address]);
+
+    await expectThrow(revertLender.borrow(calledSmartContract.address, encoding2, borrower, fundingAmount, currency));
 
   })
 
@@ -89,9 +259,30 @@ contract ('Revert Lender', (accounts) => {
 
   it ('should allow the lender to withdraw ether from the revert lender', async () => {
 
+    let currency = "0x0000000000000000000000000000000000000000";
+
+    await successfulLoan();
+    let beginningBalanceOfRevertLender = await web3.eth.getBalance(revertLender.address);
+    let beginningBalanceOfLender = await web3.eth.getBalance(lender);
+
+    await revertLender.withdraw(currency, beginningBalanceOfRevertLender, lender, {from: lender,  gas: 500000});
+
+    let endingBalanceOfRevertLender = await web3.eth.getBalance(revertLender.address);
+    let endingBalanceOfLender = await web3.eth.getBalance(lender);
+
+    console.log("beginningBalanceOfLender ", beginningBalanceOfLender);
+    console.log("beginningBalanceOfRevertLender ", beginningBalanceOfRevertLender);
+    console.log("endingBalanceOfLender ", endingBalanceOfLender);
+
+    await assert.equal(Number(beginningBalanceOfLender) + Number(beginningBalanceOfRevertLender), Number(endingBalanceOfLender), 700000000000000);
+    await assert.equal(Number(0), Number(endingBalanceOfRevertLender));
+
   })
 
   it ('should not allow anyone besides the lender to withdraw ether from the revert lender', async () => {
+    let currency = "0x0000000000000000000000000000000000000000";
+    await expectThrow(revertLender.withdraw(currency, 10, lender, {from: borrower, gas: 500000}));
+
 
   })
 

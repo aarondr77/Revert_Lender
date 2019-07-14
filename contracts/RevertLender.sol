@@ -22,8 +22,12 @@ contract RevertLender {
 
 	event AddressZero(address b);
 	event AddressArgument(address c);
+	event AmountDue(string text, uint amount, uint interest);
+	event UintPrint(string text, uint num);
+	event StringPrint(string context, string message);
 
-	function () external {}
+
+	function () external payable {}
 
 	constructor() public {
 			lender = msg.sender;
@@ -37,6 +41,7 @@ contract RevertLender {
 
 	function callPractice (address a, bytes memory callData) public {
 		a.call(callData);
+		emit StringPrint("Call Practice", "made call");
 	}
 
 	// Allows the lender to update his lending preferences
@@ -51,17 +56,24 @@ contract RevertLender {
 		interestRates[currency] = interestRate;
   }
 
-  function borrow (address smartContract, bytes memory callData, address payable borrower, uint principal, address currency) public {
+  function borrow (address payable smartContract, bytes memory callData, address payable borrower, uint principal, address currency) public {
   	require(principal <= upperLimits[currency], "principal > upper limit");
 		uint startingBalance;
 		uint endingBalance;
 		// check if currency is ether
 
 		if (currency == address(0)) {
+			emit StringPrint("ether borrow", "here");
 			// check the starting balance
 			startingBalance = address(this).balance;
-			smartContract.call.value(principal)(callData);
+			emit UintPrint("startingBalance", startingBalance);
+			smartContract.transfer(principal);
+			//smartContract.call.value(principal)(callData);
+			smartContract.call(callData);
+			//callPractice(smartContract, callData);
 			endingBalance = address(this).balance;
+			emit UintPrint("endingBalance", endingBalance);
+
 		} else {
 			// check the starting balance
 			startingBalance = IERC20(currency).balanceOf(address(this));
@@ -71,17 +83,21 @@ contract RevertLender {
 		}
 
 		// calculate the interest payment due
-		uint totalInterest = principal.mul(interestRates[lender]).div(INTEREST_RATE_CONVERTER);
+		uint totalInterest = principal.mul(interestRates[currency]).div(100);//.div(INTEREST_RATE_CONVERTER);
 		uint totalAmountDue = principal + totalInterest;
+		emit AmountDue('Amount Due', totalAmountDue, totalInterest);
+		emit AmountDue('InterestRate', interestRates[currency], totalInterest);
+		emit UintPrint('Ending Balance', address(this).balance);
+
 
 		uint deltaFromTransaction = endingBalance - startingBalance;
-		require(deltaFromTransaction > totalAmountDue, "default on loan");
+		require(deltaFromTransaction >= totalInterest, "default on loan");
 
 		//if loan was profitable
 		if (currency == address(0)) {
-			borrower.transfer(deltaFromTransaction - totalAmountDue);
+			borrower.transfer(deltaFromTransaction - totalInterest);
 		} else {
-			IERC20(currency).transfer(borrower, deltaFromTransaction - totalAmountDue);
+			IERC20(currency).transfer(borrower, deltaFromTransaction - totalInterest);
 		}
   }
 

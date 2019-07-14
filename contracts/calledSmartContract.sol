@@ -4,11 +4,18 @@ import "./ERC20.sol";
 
 contract calledSmartContract {
 
+
+  event StringPrint(string context, string message);
+
+
   function () external payable {}
 
-  function repayEtherLoan(uint256 amount, address payable to) public {
-    require(amount <= address(this).balance, "not enough ether");
+  // THESE REQUIRE FAILINGS DON"T MAKE THE ENTIRE TRANSACTION STOP DURING TESTING
+  function repayEtherLoan(uint256 amount, address payable to) public returns (bool success) {
+    emit StringPrint("calledSmartContract", "here");
+    //require(amount <= address(this).balance, "not enough ether");
     to.transfer(amount);
+    emit StringPrint("calledSmartContract", "made it to the end");
   }
 
   function repayTokenLoan(uint amount, address currency, address to) public {
