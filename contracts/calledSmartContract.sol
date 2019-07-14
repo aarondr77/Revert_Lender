@@ -18,7 +18,8 @@ contract calledSmartContract {
     emit StringPrint("calledSmartContract", "made it to the end");
   }
 
-  function repayTokenLoan(uint amount, address currency, address to) public {
+  function repayTokenLoan(uint256 amount, address currency, address to, uint256 amountToTransfer) public {
+    ERC20(currency).transferFrom(msg.sender, address(this), amountToTransfer);
     ERC20(currency).transfer(to, amount);
   }
 

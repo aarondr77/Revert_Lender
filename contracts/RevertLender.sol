@@ -1,6 +1,6 @@
 pragma solidity ^0.5.8;
 
-import "./IERC20.sol";
+import "./ERC20.sol";
 import "./SafeMath.sol";
 
 //edit see this
@@ -50,7 +50,7 @@ contract RevertLender {
 		if (currency == address(0)) {
 			require(msg.value >= amount, "must fund account to update offer");
 		} else {
-			require(IERC20(currency).transferFrom(msg.sender, address(this), amount), "not approved to transfer tokens");
+			require(ERC20(currency).transferFrom(msg.sender, address(this), amount), "not approved to transfer tokens");
 		}
 		upperLimits[currency] += amount;
 		interestRates[currency] = interestRate;
@@ -76,10 +76,10 @@ contract RevertLender {
 
 		} else {
 			// check the starting balance
-			startingBalance = IERC20(currency).balanceOf(address(this));
-			IERC20(currency).approve(smartContract, principal);
+			startingBalance = ERC20(currency).balanceOf(address(this));
+			ERC20(currency).approve(smartContract, principal);
 			smartContract.call(callData);
-			endingBalance = IERC20(currency).balanceOf(address(this));
+			endingBalance = ERC20(currency).balanceOf(address(this));
 		}
 
 		// calculate the interest payment due
@@ -87,8 +87,6 @@ contract RevertLender {
 		uint totalAmountDue = principal + totalInterest;
 		emit AmountDue('Amount Due', totalAmountDue, totalInterest);
 		emit AmountDue('InterestRate', interestRates[currency], totalInterest);
-		emit UintPrint('Ending Balance', address(this).balance);
-
 
 		uint deltaFromTransaction = endingBalance - startingBalance;
 		require(deltaFromTransaction >= totalInterest, "default on loan");
@@ -97,7 +95,7 @@ contract RevertLender {
 		if (currency == address(0)) {
 			borrower.transfer(deltaFromTransaction - totalInterest);
 		} else {
-			IERC20(currency).transfer(borrower, deltaFromTransaction - totalInterest);
+			ERC20(currency).transfer(borrower, deltaFromTransaction - totalInterest);
 		}
   }
 
@@ -109,8 +107,8 @@ contract RevertLender {
 			to.transfer(amount);
 			require(address(this).balance + amount == startingBalance, "ether withdraw misbehaved");
 		} else {
-			require(IERC20(currency).balanceOf(address(this)) >= amount, "insufficient funds to withdraw");
-			require(IERC20(currency).transfer(to, amount), "withdraw transfer failed");
+			require(ERC20(currency).balanceOf(address(this)) >= amount, "insufficient funds to withdraw");
+			require(ERC20(currency).transfer(to, amount), "withdraw transfer failed");
 		}
   }
 }
